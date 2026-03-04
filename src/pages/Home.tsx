@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCw, Sparkles, BookOpen, Sun, Moon } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import ArticleCard from '../components/ArticleCard'
 import { getUser, getArticleCache, saveArticleCache, isCacheStale, trackScreenTime } from '../lib/storage'
 import { generateTopPicks } from '../lib/AI'
-import { fetchTopNews } from '../lib/newsApi'
 import type { Article } from '../lib/storage'
 
 function getGreeting(): string {
@@ -26,8 +25,8 @@ export default function Home() {
   const user = getUser()
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState('')
   const mood = getDayMood()
 
   useEffect(() => {
@@ -36,43 +35,46 @@ export default function Home() {
   }, [])
 
   const loadArticles = async (forceRefresh = false) => {
-    try {
-      // Check cache first
-      if (!forceRefresh && !isCacheStale()) {
-        const cache = getArticleCache()
-        if (cache && cache.articles.length > 0) {
-          setArticles(cache.articles)
-          setLoading(false)
-          return
-        }
-      }
-
-      setLoading(true)
-      setError('')
-
-      const prefs = user?.preferences || ['Technology', 'Science']
-      const country = user?.country || 'Indonesia'
-
-      // Try real news API first
-      let fetchedArticles = await fetchTopNews(prefs, country)
-
-      // Fall back to AI-generated articles if no API key or empty results
-      if (fetchedArticles.length === 0) {
-        fetchedArticles = await generateTopPicks(prefs, country)
-      }
-
-      // Limit to 5 top picks
-      const topPicks = fetchedArticles.slice(0, 5)
-
-      saveArticleCache(topPicks)
-      setArticles(topPicks)
-    } catch (err) {
-      setError('Unable to load articles. Please check your API configuration.')
-      // Load fallback
+    // Serve from cache if still fresh
+    if (!forceRefresh && !isCacheStale()) {
       const cache = getArticleCache()
-      if (cache) setArticles(cache.articles)
+      if (cache && cache.articles.length > 0) {
+        setArticles(cache.articles)
+        setLoading(false)
+        return
+      }
+    }
+
+    setArticles([])
+    setLoading(true)
+    setGenerating(true)
+
+    const prefs = user?.preferences || ['Technology', 'Science']
+    const country = user?.country || 'Indonesia'
+
+    try {
+      const collected: Article[] = []
+
+      await generateTopPicks(prefs, country, (article) => {
+        // Each article streams in as soon as it's ready
+        collected.push(article)
+        setArticles(prev => [...prev, article])
+        setLoading(false) // Remove skeleton after first article arrives
+      })
+
+      // Save the full batch to cache
+      if (collected.length > 0) {
+        saveArticleCache(collected)
+      }
+    } catch {
+      // If generation fails, try cache as fallback
+      const cache = getArticleCache()
+      if (cache && cache.articles.length > 0) {
+        setArticles(cache.articles)
+      }
     } finally {
       setLoading(false)
+      setGenerating(false)
       setRefreshing(false)
     }
   }
@@ -82,15 +84,31 @@ export default function Home() {
     await loadArticles(true)
   }
 
-  const SkeletonCard = () => (
-    <div className="card p-5 animate-pulse">
-      <div className="h-40 skeleton rounded-xl mb-4" />
-      <div className="h-3 skeleton rounded w-1/4 mb-3" />
-      <div className="h-5 skeleton rounded w-3/4 mb-2" />
-      <div className="h-4 skeleton rounded w-full mb-1" />
-      <div className="h-4 skeleton rounded w-2/3" />
-    </div>
+  const SkeletonCard = ({ featured = false }: { featured?: boolean }) => (
+    featured ? (
+      <div className="card animate-pulse overflow-hidden">
+        <div className="h-48 skeleton" />
+        <div className="p-5 space-y-3">
+          <div className="h-3 skeleton rounded w-1/4" />
+          <div className="h-5 skeleton rounded w-3/4" />
+          <div className="h-4 skeleton rounded w-full" />
+          <div className="h-4 skeleton rounded w-2/3" />
+        </div>
+      </div>
+    ) : (
+      <div className="flex gap-4 p-4 rounded-2xl bg-white/60 border border-cream-200/40 animate-pulse">
+        <div className="w-20 h-20 skeleton rounded-xl flex-shrink-0" />
+        <div className="flex-1 space-y-2 pt-1">
+          <div className="h-3 skeleton rounded w-1/4" />
+          <div className="h-4 skeleton rounded w-full" />
+          <div className="h-4 skeleton rounded w-3/4" />
+          <div className="h-3 skeleton rounded w-1/3" />
+        </div>
+      </div>
+    )
   )
+
+  const isFirstLoad = loading && articles.length === 0
 
   return (
     <div className="min-h-screen pb-24 md:pb-8">
@@ -117,11 +135,11 @@ export default function Home() {
 
             <button
               onClick={handleRefresh}
-              disabled={refreshing || loading}
+              disabled={refreshing || generating}
               className="flex items-center gap-2 text-sm text-sage-500 hover:text-sage-700 font-body bg-cream-200/60 hover:bg-cream-300/60 px-3 py-2 rounded-xl transition-all duration-200 disabled:opacity-50"
             >
-              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">Refresh</span>
+              <RefreshCw size={14} className={refreshing || generating ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">{refreshing ? 'Writing...' : 'Refresh'}</span>
             </button>
           </div>
 
@@ -151,30 +169,77 @@ export default function Home() {
             <Sparkles size={18} className="text-sage-500" />
             <h2 className="font-body font-semibold text-sage-800">Today's Top Picks</h2>
           </div>
-          <span className="font-mono text-xs text-sage-400">
-            Updated daily at 6:00 AM
-          </span>
+          {generating && !isFirstLoad ? (
+            <span className="font-mono text-xs text-sage-400 flex items-center gap-1">
+              <RefreshCw size={10} className="animate-spin" />
+              writing more...
+            </span>
+          ) : (
+            <span className="font-mono text-xs text-sage-400">AI-curated for you</span>
+          )}
         </motion.div>
 
-        {/* Error state */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-sm text-amber-700 font-body"
-          >
-            <p className="font-medium mb-1">⚠️ Loading Issue</p>
-            <p className="text-xs leading-relaxed">{error}</p>
-            <p className="text-xs mt-2">Make sure your API keys are set in <code className="bg-amber-100 px-1 rounded">.env.local</code></p>
-          </motion.div>
+        {/* Full skeleton — only on very first load before any article arrives */}
+        {isFirstLoad && (
+          <div className="space-y-4">
+            <SkeletonCard featured />
+            <SkeletonCard />
+            <SkeletonCard />
+            <p className="text-center text-xs text-sage-400 font-body pt-1 flex items-center justify-center gap-1.5">
+              <Sparkles size={11} className="text-sage-400" />
+              AI is writing your personalized articles...
+            </p>
+          </div>
         )}
 
-        {/* Articles */}
-        {loading ? (
+        {/* Articles — stream in progressively */}
+        {articles.length > 0 && (
           <div className="space-y-4">
-            {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
+            {/* Featured first article */}
+            <AnimatePresence>
+              {articles[0] && (
+                <motion.div
+                  key={articles[0].id}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <ArticleCard article={articles[0]} index={0} featured />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Remaining articles */}
+            <div className="space-y-3">
+              <AnimatePresence>
+                {articles.slice(1).map((article, i) => (
+                  <motion.div
+                    key={article.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35 }}
+                  >
+                    <ArticleCard article={article} index={i + 1} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {/* Inline skeleton while more articles are being generated */}
+              {generating && articles.length < 6 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <SkeletonCard />
+                </motion.div>
+              )}
+            </div>
           </div>
-        ) : articles.length === 0 ? (
+        )}
+
+        {/* Empty state — only if done generating and nothing came back */}
+        {!loading && !generating && articles.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -182,38 +247,26 @@ export default function Home() {
           >
             <BookOpen size={48} className="text-sage-300 mx-auto mb-4" />
             <h3 className="font-display text-xl text-sage-600 mb-2">No articles yet</h3>
-            <p className="font-body text-sm text-sage-400 mb-6">Configure your API keys to load real content, or let AI generate some for you.</p>
+            <p className="font-body text-sm text-sage-400 mb-6">
+              Make sure your OpenRouter API key is set in <code className="bg-cream-200 px-1 rounded">.env.local</code>
+            </p>
             <button onClick={handleRefresh} className="btn-primary">
-              Generate Articles with AI
+              Try Again
             </button>
           </motion.div>
-        ) : (
-          <div className="space-y-4">
-            {/* Featured first article */}
-            {articles[0] && (
-              <ArticleCard article={articles[0]} index={0} featured />
-            )}
-
-            {/* Remaining articles */}
-            <div className="space-y-3">
-              {articles.slice(1).map((article, i) => (
-                <ArticleCard key={article.id} article={article} index={i + 1} />
-              ))}
-            </div>
-          </div>
         )}
 
         {/* Wellness tip */}
-        {!loading && articles.length > 0 && (
+        {!isFirstLoad && articles.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.4 }}
             className="mt-8 p-5 bg-sage-700/5 border border-sage-200/60 rounded-3xl"
           >
             <p className="font-display text-sage-700 text-sm mb-1">🌿 Mindful Reading Tip</p>
             <p className="font-body text-xs text-sage-500 leading-relaxed">
-              After reading, pause for 30 seconds to reflect on what you learned. 
+              After reading, pause for 30 seconds to reflect on what you learned.
               This simple habit can increase information retention by up to 40%.
             </p>
           </motion.div>

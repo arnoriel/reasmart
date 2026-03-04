@@ -9,6 +9,13 @@ interface AIMessage {
   content: string
 }
 
+// Unsplash Source — free, no API key needed, returns relevant images by keyword
+function getUnsplashImage(keywords: string[]): string {
+  const query = keywords.slice(0, 2).join(',').replace(/\s+/g, '+')
+  const seed = Math.floor(Math.random() * 1000)
+  return `https://source.unsplash.com/800x450/?${query}&sig=${seed}`
+}
+
 export async function callAI(messages: AIMessage[], maxTokens = 1024): Promise<string> {
   if (!API_KEY || API_KEY === 'your_openrouter_api_key_here') {
     throw new Error('OpenRouter API key not configured. Please set VITE_OPENROUTER_API_KEY in .env.local')
@@ -84,225 +91,181 @@ Respond ONLY with valid JSON. No markdown, no backticks, no extra text.`
 }
 
 /**
- * Filter and score an article for quality, positivity, and mindfulness
+ * Generate a single article — fast, focused, relevant
  */
-export async function filterArticle(article: {
-  title: string
-  description: string
-  source: string
-}): Promise<{
-  isHealthy: boolean
-  score: number
-  reason: string
-  tags: string[]
-}> {
-  const prompt = `You are a content moderation AI for a mental wellness reading app. Evaluate this article:
+async function generateSingleArticle(
+  topic: string,
+  country: string,
+  category: string,
+  index: number
+): Promise<Article | null> {
+  const prompt = `You are a premium content writer for Reasmart, a mindful reading app. Write ONE high-quality, real-feeling article about: "${topic}" for a reader from ${country}.
 
-Title: "${article.title}"
-Description: "${article.description}"
-Source: ${article.source}
+Requirements:
+- Positive, educational, or inspiring angle
+- Grounded in real facts, trends, or timeless insight
+- NOT political, fear-based, or provocative
+- Category: ${category}
 
-Analyze it and respond ONLY with valid JSON (no markdown):
+Respond ONLY with valid JSON (no markdown, no backticks):
 {
-  "isHealthy": true/false (is it positive, informative, not provocative or harmful?),
-  "score": 1-10 (wellness score: how beneficial is it for the reader's mental health?),
-  "reason": "brief reason for the score",
-  "tags": ["tag1", "tag2"] (2-3 relevant topic tags)
-}
-
-Articles about violence, extreme politics, fear-mongering, or hate speech should score below 5 and isHealthy: false.
-Educational, inspiring, scientific, cultural, business, and uplifting articles score 7-10.`
+  "title": "Compelling article title",
+  "description": "2-3 sentence hook summary",
+  "content": "Full article, 5-7 paragraphs, well-written and detailed. Use double newlines between paragraphs.",
+  "source": "Realistic publication name (e.g. MIT Technology Review, The Atlantic, Nature, etc.)",
+  "publishedAt": "${new Date(Date.now() - index * 3600000).toISOString()}",
+  "readTime": 5,
+  "aiScore": 8,
+  "imageKeywords": ["keyword1", "keyword2"],
+  "tags": ["tag1", "tag2", "tag3"]
+}`
 
   try {
-    const raw = await callAI([{ role: 'user', content: prompt }], 256)
+    const raw = await callAI([{ role: 'user', content: prompt }], 1200)
     const clean = raw.replace(/```json|```/g, '').trim()
-    return JSON.parse(clean)
-  } catch {
+    const parsed = JSON.parse(clean)
+
+    const imageKeywords = parsed.imageKeywords || [topic, category]
     return {
-      isHealthy: true,
-      score: 7,
-      reason: 'Content appears informative and balanced.',
-      tags: ['general', 'informative'],
+      id: `ai_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`,
+      title: parsed.title || `Insights on ${topic}`,
+      description: parsed.description || '',
+      content: parsed.content || '',
+      url: '#',
+      image: getUnsplashImage(imageKeywords),
+      source: parsed.source || 'Reasmart Editorial',
+      publishedAt: parsed.publishedAt || new Date().toISOString(),
+      category,
+      readTime: parsed.readTime || 5,
+      aiScore: parsed.aiScore || 8,
+      tags: parsed.tags || [topic, category],
     }
+  } catch {
+    return null
   }
 }
 
 /**
- * Generate curated top picks articles when no news API is available
+ * Generate article topics from user preferences — fast planning step
  */
-export async function generateTopPicks(preferences: string[], country: string): Promise<Article[]> {
-  const prompt = `You are a wellness content curator AI for Reasmart app. Generate exactly 5 high-quality, real-feeling article summaries for someone interested in: ${preferences.join(', ')}, from ${country}.
+async function planArticleTopics(
+  preferences: string[],
+  country: string,
+  count: number
+): Promise<Array<{ topic: string; category: string }>> {
+  const prompt = `You are a content strategist for a mindful reading app. Generate ${count} diverse, specific article topics for someone from ${country} interested in: ${preferences.join(', ')}.
 
-The articles should be:
+Each topic should be:
+- Specific and engaging (not generic)
 - Positive, educational, or inspiring
-- About real, plausible current events or timeless topics
-- NOT provocative, political, or fear-based
-- Mix of local/global relevance
+- Varied across the interests listed
+- Relevant to ${country} or globally interesting
 
-Respond ONLY with valid JSON array (no markdown, no backticks):
+Respond ONLY with valid JSON array (no markdown):
 [
-  {
-    "id": "unique_id_string",
-    "title": "Article title",
-    "description": "2-3 sentence summary",
-    "content": "Full article content, 4-6 paragraphs of detailed, well-written content",
-    "url": "https://example.com/article",
-    "image": null,
-    "source": "Source Name",
-    "publishedAt": "2025-03-02T06:00:00Z",
-    "category": "category_name",
-    "readTime": 4,
-    "aiScore": 8,
-    "tags": ["tag1", "tag2"]
-  }
+  { "topic": "specific article topic", "category": "one of: technology|science|health|business|culture|personal-growth|environment|psychology" }
 ]`
 
   try {
-    const raw = await callAI([{ role: 'user', content: prompt }], 2048)
+    const raw = await callAI([{ role: 'user', content: prompt }], 600)
     const clean = raw.replace(/```json|```/g, '').trim()
-    const articles = JSON.parse(clean)
-    return articles.map((a: Article, i: number) => ({
-      ...a,
-      id: a.id || `ai_${Date.now()}_${i}`,
-    }))
+    const parsed = JSON.parse(clean)
+    return Array.isArray(parsed) ? parsed.slice(0, count) : []
   } catch {
-    return getFallbackArticles()
+    // Fallback topics
+    return preferences.slice(0, count).map((pref, i) => ({
+      topic: pref,
+      category: ['technology', 'science', 'health', 'personal-growth', 'culture'][i % 5],
+    }))
   }
 }
 
 /**
- * Search and filter articles by query
+ * Generate curated top picks — parallel generation for speed
+ * Articles stream in as they're ready via onArticleReady callback
  */
-export async function searchAndFilterContent(query: string, rawResults: Partial<Article>[]): Promise<Article[]> {
-  if (rawResults.length === 0) {
-    return generateSearchResults(query)
-  }
+export async function generateTopPicks(
+  preferences: string[],
+  country: string,
+  onArticleReady?: (article: Article) => void
+): Promise<Article[]> {
+  const COUNT = 6
 
-  // Filter each article
-  const filtered: Article[] = []
-  for (const article of rawResults.slice(0, 10)) {
-    if (!article.title) continue
-    const check = await filterArticle({
-      title: article.title,
-      description: article.description || '',
-      source: article.source || 'Unknown',
+  // Step 1: Plan topics quickly
+  const topics = await planArticleTopics(preferences, country, COUNT)
+
+  // Step 2: Generate all articles in parallel
+  const promises = topics.map(({ topic, category }, i) =>
+    generateSingleArticle(topic, country, category, i).then(article => {
+      if (article && onArticleReady) {
+        onArticleReady(article)
+      }
+      return article
     })
-    if (check.isHealthy && check.score >= 6) {
-      filtered.push({
-        id: article.id || `s_${Date.now()}_${Math.random()}`,
-        title: article.title,
-        description: article.description || '',
-        content: article.content || article.description || '',
-        url: article.url || '#',
-        image: article.image,
-        source: article.source || 'Unknown',
-        publishedAt: article.publishedAt || new Date().toISOString(),
-        category: article.category || 'general',
-        readTime: Math.ceil((article.content || '').split(' ').length / 200) || 3,
-        aiScore: check.score,
-        tags: check.tags,
-      })
-    }
-  }
-  return filtered
+  )
+
+  const results = await Promise.allSettled(promises)
+  const articles = results
+    .filter(r => r.status === 'fulfilled' && r.value !== null)
+    .map(r => (r as PromiseFulfilledResult<Article>).value)
+
+  return articles.length > 0 ? articles : getFallbackArticles()
 }
 
-async function generateSearchResults(query: string): Promise<Article[]> {
-  const prompt = `Generate 4 high-quality, positive, educational articles about: "${query}"
+/**
+ * Generate search results — parallel, fast, on-topic
+ */
+export async function generateSearchResults(
+  query: string,
+  country: string = 'Global',
+  onArticleReady?: (article: Article) => void
+): Promise<Article[]> {
+  const COUNT = 5
+
+  const prompt = `You are a content strategist. Generate ${COUNT} specific article angles about: "${query}" for a reader from ${country}.
+
+Each angle should be distinct, positive, educational, or inspiring. Vary the perspective (e.g., practical guide, scientific insight, case study, future trends, human story).
 
 Respond ONLY with valid JSON array:
-[
-  {
-    "id": "search_1",
-    "title": "Relevant article title",
-    "description": "2-3 sentence summary",
-    "content": "Detailed article content, 3-5 paragraphs",
-    "url": "https://example.com",
-    "image": null,
-    "source": "Source Name",
-    "publishedAt": "2025-03-02T10:00:00Z",
-    "category": "category",
-    "readTime": 4,
-    "aiScore": 8,
-    "tags": ["tag1", "tag2"]
-  }
-]`
+[{ "topic": "specific angle", "category": "technology|science|health|business|culture|personal-growth|environment|psychology" }]`
 
+  let topics: Array<{ topic: string; category: string }> = []
   try {
-    const raw = await callAI([{ role: 'user', content: prompt }], 1500)
+    const raw = await callAI([{ role: 'user', content: prompt }], 400)
     const clean = raw.replace(/```json|```/g, '').trim()
-    return JSON.parse(clean)
+    topics = JSON.parse(clean)
   } catch {
-    return []
+    topics = Array.from({ length: COUNT }, (_, i) => ({
+      topic: `${query} — perspective ${i + 1}`,
+      category: 'general',
+    }))
   }
+
+  const promises = topics.slice(0, COUNT).map(({ topic, category }, i) =>
+    generateSingleArticle(topic, country, category, i).then(article => {
+      if (article && onArticleReady) {
+        onArticleReady(article)
+      }
+      return article
+    })
+  )
+
+  const results = await Promise.allSettled(promises)
+  return results
+    .filter(r => r.status === 'fulfilled' && r.value !== null)
+    .map(r => (r as PromiseFulfilledResult<Article>).value)
 }
 
-function getFallbackArticles(): Article[] {
-  return [
-    {
-      id: 'fallback_1',
-      title: 'The Science of Mindful Reading: How Quality Content Shapes Your Brain',
-      description: 'Research shows that reading thoughtful, well-crafted articles activates deep neural pathways that enhance critical thinking and emotional intelligence.',
-      content: `Reading has always been one of humanity's most powerful tools for growth and understanding. But not all reading is created equal. Recent neuroscientific research has illuminated the profound differences between mindless scrolling and intentional, mindful reading.
-
-When we engage deeply with well-written content, our brains enter a state that scientists call "narrative transportation." This state is characterized by increased activity in the default mode network, the brain regions associated with empathy, self-reflection, and long-term memory formation. In contrast, rapid content consumption activates only superficial processing centers.
-
-A 2024 study from the University of Toronto found that people who practiced "slow reading" — taking time to reflect between paragraphs — showed measurable improvements in critical thinking scores over just eight weeks. They were also significantly better at detecting misinformation and logical fallacies.
-
-The key is quality over quantity. Reading three thoughtfully chosen articles per day, with genuine reflection time, produces far greater cognitive benefits than consuming dozens of headlines. Your brain needs time to integrate new information with existing knowledge frameworks.
-
-Reasmart was designed with this research in mind. Every article you read here has been curated for its potential to stimulate genuine thinking, expand your worldview, and support your mental wellbeing. Welcome to a smarter, healthier reading experience.`,
-      url: 'https://reasmart.app/science-of-mindful-reading',
-      source: 'Reasmart Insights',
-      publishedAt: new Date().toISOString(),
-      category: 'psychology',
-      readTime: 5,
-      aiScore: 9,
-      tags: ['mindfulness', 'neuroscience', 'reading'],
-    },
-    {
-      id: 'fallback_2',
-      title: 'Digital Wellness in 2025: Reclaiming Your Attention in the Age of Algorithms',
-      description: 'As social media platforms compete for every second of your attention, a growing movement is helping people take back control of their mental space.',
-      content: `The average person now touches their phone over 2,600 times per day. This staggering statistic, from a 2024 Dscout research report, captures the extent to which our attention has been fragmented by the demands of the digital world.
-
-But a counter-movement is gaining momentum. Millions of people worldwide are deliberately redesigning their relationship with technology, seeking out tools and practices that serve their wellbeing rather than exploit their psychology.
-
-The shift began with growing awareness of how recommendation algorithms work. These systems are optimized not for user happiness, but for engagement — which often means surfacing content that triggers strong emotional responses, including anxiety, outrage, and fear. The result is a diet of information that leaves users feeling simultaneously overstimulated and intellectually undernourished.
-
-Digital wellness advocates suggest three key practices: intentional content selection (choosing what you read rather than letting algorithms choose for you), reading without scrolling (engaging fully with one piece before moving to the next), and reflection time (pausing after reading to consider what you've learned).
-
-Apps like Reasmart represent a new category of digital wellness tool: platforms designed to nourish the mind rather than exploit it. By combining AI-powered content curation with mindfulness principles, they offer a genuinely healthier alternative to the endless scroll.`,
-      url: 'https://reasmart.app/digital-wellness-2025',
-      source: 'Wellness Tribune',
-      publishedAt: new Date().toISOString(),
-      category: 'technology',
-      readTime: 4,
-      aiScore: 8,
-      tags: ['digital wellness', 'attention', 'technology'],
-    },
-    {
-      id: 'fallback_3',
-      title: 'The Open-Minded Leader: Why Intellectual Humility is the Most Valuable Skill of Our Era',
-      description: 'Leaders who actively seek out perspectives that challenge their own perform better, make fewer errors, and create more innovative teams.',
-      content: `In a world of increasing complexity and rapid change, one leadership quality stands out above all others: intellectual humility. This is the ability to recognize the limits of your own knowledge and remain genuinely open to new information, even when it challenges your existing beliefs.
-
-Research from the Wharton School has consistently shown that intellectually humble leaders make better decisions. They are more likely to seek out dissenting opinions, less likely to double down on failed strategies, and better at building teams that feel psychologically safe enough to share honest feedback.
-
-Intellectual humility is not the same as lacking confidence or being uncertain about your values. Rather, it means holding your beliefs provisionally, recognizing that your perspective is always partial, and staying curious about what you might not yet understand.
-
-Developing intellectual humility starts with reading broadly and deeply. Exposing yourself to ideas from different disciplines, cultures, and worldviews builds the cognitive flexibility needed to navigate complex situations. It also helps to actively practice "steelmanning" — representing opposing views in their strongest form before critiquing them.
-
-The most successful people in any field share a commitment to lifelong learning and a willingness to be wrong. In today's fast-changing world, the ability to update your mental models quickly is not just a nice-to-have — it's a survival skill.`,
-      url: 'https://reasmart.app/intellectual-humility',
-      source: 'Leadership Quarterly',
-      publishedAt: new Date().toISOString(),
-      category: 'personal-growth',
-      readTime: 5,
-      aiScore: 9,
-      tags: ['leadership', 'psychology', 'personal growth'],
-    },
-  ]
+/**
+ * Legacy compat — search page still calls this shape
+ */
+export async function searchAndFilterContent(
+  query: string,
+  _rawResults: Partial<Article>[],
+  country?: string,
+  onArticleReady?: (article: Article) => void
+): Promise<Article[]> {
+  return generateSearchResults(query, country || 'Global', onArticleReady)
 }
 
 /**
@@ -318,4 +281,53 @@ Write a brief, warm, non-preachy reminder encouraging them to take a break. Keep
   } catch {
     return "You've been reading for a while — great job! Consider taking a short break to let all this knowledge sink in. 🌿"
   }
+}
+
+function getFallbackArticles(): Article[] {
+  return [
+    {
+      id: 'fallback_1',
+      title: 'The Science of Mindful Reading: How Quality Content Shapes Your Brain',
+      description: 'Research shows that reading thoughtful, well-crafted articles activates deep neural pathways that enhance critical thinking and emotional intelligence.',
+      content: `Reading has always been one of humanity's most powerful tools for growth and understanding. But not all reading is created equal. Recent neuroscientific research has illuminated the profound differences between mindless scrolling and intentional, mindful reading.
+
+When we engage deeply with well-written content, our brains enter a state that scientists call "narrative transportation." This state is characterized by increased activity in the default mode network — the brain regions associated with empathy, self-reflection, and long-term memory formation.
+
+A 2024 study from the University of Toronto found that people who practiced "slow reading" showed measurable improvements in critical thinking scores over just eight weeks. They were also significantly better at detecting misinformation and logical fallacies.
+
+The key is quality over quantity. Reading three thoughtfully chosen articles per day, with genuine reflection time, produces far greater cognitive benefits than consuming dozens of headlines.
+
+Reasmart was designed with this research in mind. Every article you read here has been curated for its potential to stimulate genuine thinking, expand your worldview, and support your mental wellbeing.`,
+      url: '#',
+      image: getUnsplashImage(['reading', 'mindfulness']),
+      source: 'Reasmart Insights',
+      publishedAt: new Date().toISOString(),
+      category: 'psychology',
+      readTime: 5,
+      aiScore: 9,
+      tags: ['mindfulness', 'neuroscience', 'reading'],
+    },
+    {
+      id: 'fallback_2',
+      title: 'Digital Wellness in 2025: Reclaiming Your Attention in the Age of Algorithms',
+      description: 'As social media platforms compete for every second of your attention, a growing movement is helping people take back control of their mental space.',
+      content: `The average person now touches their phone over 2,600 times per day. This staggering statistic captures the extent to which our attention has been fragmented by the demands of the digital world.
+
+But a counter-movement is gaining momentum. Millions of people worldwide are deliberately redesigning their relationship with technology, seeking out tools and practices that serve their wellbeing rather than exploit their psychology.
+
+The shift began with growing awareness of how recommendation algorithms work. These systems are optimized not for user happiness, but for engagement — which often means surfacing content that triggers strong emotional responses, including anxiety and fear.
+
+Digital wellness advocates suggest three key practices: intentional content selection, reading without scrolling, and reflection time after each piece.
+
+Apps like Reasmart represent a new category of digital wellness tool: platforms designed to nourish the mind rather than exploit it.`,
+      url: '#',
+      image: getUnsplashImage(['digital', 'wellness']),
+      source: 'Wellness Tribune',
+      publishedAt: new Date().toISOString(),
+      category: 'technology',
+      readTime: 4,
+      aiScore: 8,
+      tags: ['digital wellness', 'attention', 'technology'],
+    },
+  ]
 }

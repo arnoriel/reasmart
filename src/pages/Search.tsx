@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search as SearchIcon, X, Loader2, TrendingUp, Filter } from 'lucide-react'
+import { Search as SearchIcon, X, Loader2, TrendingUp, Filter, Sparkles } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import ArticleCard from '../components/ArticleCard'
-import { searchAndFilterContent } from '../lib/AI'
-import { searchNews } from '../lib/newsApi'
+import { generateSearchResults } from '../lib/AI'
+import { getUser } from '../lib/storage'
 import type { Article } from '../lib/storage'
 
 const TRENDING = [
@@ -22,7 +22,9 @@ export default function Search() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [filterScore, setFilterScore] = useState(0)
+  const [generating, setGenerating] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const user = getUser()
 
   const handleSearch = async (q = query) => {
     const trimmed = q.trim()
@@ -30,20 +32,23 @@ export default function Search() {
 
     setQuery(trimmed)
     setLoading(true)
+    setGenerating(true)
     setSearched(true)
     setResults([])
 
     try {
-      // Fetch from news API
-      const rawResults = await searchNews(trimmed)
+      const country = user?.country || 'Global'
 
-      // AI filter & enrich
-      const filtered = await searchAndFilterContent(trimmed, rawResults)
-      setResults(filtered)
+      // Stream articles as they're generated
+      await generateSearchResults(trimmed, country, (article) => {
+        setResults(prev => [...prev, article])
+        setLoading(false) // Hide skeleton after first article arrives
+      })
     } catch {
       setResults([])
     } finally {
       setLoading(false)
+      setGenerating(false)
     }
   }
 
@@ -55,6 +60,7 @@ export default function Search() {
     setQuery('')
     setResults([])
     setSearched(false)
+    setGenerating(false)
     inputRef.current?.focus()
   }
 
@@ -76,7 +82,7 @@ export default function Search() {
         >
           <h1 className="font-display text-2xl md:text-3xl text-sage-800 mb-2">Explore</h1>
           <p className="font-body text-sm text-sage-500">
-            Search any topic. Our AI ensures every result is positive, accurate, and mindful.
+            Search any topic. Our AI writes you a fresh, mindful reading set — tailored just for you.
           </p>
         </motion.div>
 
@@ -106,10 +112,10 @@ export default function Search() {
             )}
             <button
               onClick={() => handleSearch()}
-              disabled={loading || !query.trim()}
+              disabled={loading || generating || !query.trim()}
               className="btn-primary py-2 px-4 text-sm disabled:opacity-50"
             >
-              {loading ? <Loader2 size={14} className="animate-spin" /> : 'Search'}
+              {loading || generating ? <Loader2 size={14} className="animate-spin" /> : 'Search'}
             </button>
           </div>
         </motion.div>
@@ -142,12 +148,12 @@ export default function Search() {
               </div>
 
               <div className="mt-10 p-5 bg-gradient-to-br from-sage-700 to-sage-800 rounded-3xl text-white">
-                <div className="text-2xl mb-2">🛡️</div>
-                <h3 className="font-display text-lg mb-2">AI Content Shield</h3>
+                <div className="text-2xl mb-2">✨</div>
+                <h3 className="font-display text-lg mb-2">AI-Curated Articles</h3>
                 <p className="font-body text-sm text-sage-300 leading-relaxed">
-                  Every search result is automatically screened by our AI for negativity, 
-                  misinformation, and provocative content. Only mindful, quality articles 
-                  make it to your screen.
+                  Every article you see on Reasmart is freshly written by AI — tailored to your
+                  preferences, country, and topic. No clickbait, no algorithms, just quality content
+                  crafted for mindful reading.
                 </p>
               </div>
             </motion.div>
@@ -159,7 +165,7 @@ export default function Search() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {/* Filter bar */}
+              {/* Filter bar — shown once results start arriving */}
               {results.length > 0 && (
                 <div className="flex items-center gap-3 mb-5">
                   <Filter size={14} className="text-sage-400" />
@@ -182,8 +188,8 @@ export default function Search() {
                 </div>
               )}
 
-              {/* Loading */}
-              {loading && (
+              {/* Initial loading skeleton — only shown before first article arrives */}
+              {loading && results.length === 0 && (
                 <div className="space-y-3">
                   {[1, 2, 3].map(i => (
                     <div key={i} className="flex gap-4 p-4 rounded-2xl bg-white/60 border border-cream-200/40 animate-pulse">
@@ -196,34 +202,52 @@ export default function Search() {
                       </div>
                     </div>
                   ))}
-                  <p className="text-center text-xs text-sage-400 font-body mt-2">
-                    AI is screening results for quality, please wait...
+                  <p className="text-center text-xs text-sage-400 font-body mt-2 flex items-center justify-center gap-2">
+                    <Sparkles size={12} className="text-sage-500" />
+                    AI is filtering your articles, please wait...
                   </p>
                 </div>
               )}
 
-              {/* Results */}
-              {!loading && filteredResults.length > 0 && (
+              {/* Results — stream in as they're ready */}
+              {filteredResults.length > 0 && (
                 <div>
-                  <p className="font-body text-xs text-sage-400 mb-4">
-                    {filteredResults.length} mindful result{filteredResults.length !== 1 ? 's' : ''} for "{query}"
-                  </p>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="font-body text-xs text-sage-400">
+                      {filteredResults.length} article{filteredResults.length !== 1 ? 's' : ''} for "{query}"
+                      {generating && <span className="text-sage-500"> · showing more...</span>}
+                    </p>
+                    {generating && (
+                      <div className="flex items-center gap-1.5 text-xs text-sage-500 font-mono">
+                        <Loader2 size={11} className="animate-spin" />
+                        Generating
+                      </div>
+                    )}
+                  </div>
                   <div className="space-y-3">
-                    {filteredResults.map((article, i) => (
-                      <ArticleCard key={article.id} article={article} index={i} />
-                    ))}
+                    <AnimatePresence>
+                      {filteredResults.map((article, i) => (
+                        <motion.div
+                          key={article.id}
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <ArticleCard article={article} index={i} />
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
                 </div>
               )}
 
               {/* No results */}
-              {!loading && filteredResults.length === 0 && (
+              {!loading && !generating && filteredResults.length === 0 && (
                 <div className="text-center py-16">
                   <div className="text-5xl mb-4">🔍</div>
-                  <h3 className="font-display text-xl text-sage-600 mb-2">No mindful results found</h3>
+                  <h3 className="font-display text-xl text-sage-600 mb-2">No results found</h3>
                   <p className="font-body text-sm text-sage-400 leading-relaxed max-w-xs mx-auto">
-                    Our AI didn't find any positive, quality articles for this search.
-                    Try a different topic or reduce the filter score.
+                    Try a different topic or reduce the minimum AI score filter.
                   </p>
                   <button onClick={clearSearch} className="btn-ghost mt-6">
                     Try another search
