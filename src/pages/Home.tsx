@@ -187,7 +187,7 @@ export default function Home() {
             <SkeletonCard />
             <p className="text-center text-xs text-sage-400 font-body pt-1 flex items-center justify-center gap-1.5">
               <Sparkles size={11} className="text-sage-400" />
-              AI is writing your personalized articles...
+              AI is preparing your personalized articles...
             </p>
           </div>
         )}
