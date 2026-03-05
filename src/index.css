@@ -6,6 +6,8 @@
   * {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* GPU-hint for animated elements */
+    -webkit-tap-highlight-color: transparent;
   }
 
   html {
@@ -14,52 +16,63 @@
 
   body {
     @apply font-body bg-cream-100 text-sage-900;
-    background-image: 
+    background-image:
       radial-gradient(ellipse at 20% 20%, rgba(124, 174, 158, 0.08) 0%, transparent 60%),
       radial-gradient(ellipse at 80% 80%, rgba(180, 164, 142, 0.06) 0%, transparent 60%);
     min-height: 100vh;
+    /* Prevent layout shift during content load */
+    overflow-x: hidden;
   }
 
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-cream-100;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-sage-300 rounded-full;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-sage-400;
-  }
+  /* Thin, elegant scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { @apply bg-cream-100; }
+  ::-webkit-scrollbar-thumb { @apply bg-sage-300 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-sage-400; }
+  ::selection { @apply bg-sage-200 text-sage-800; }
 
-  ::selection {
-    @apply bg-sage-200 text-sage-800;
+  /* Smooth image rendering */
+  img {
+    image-rendering: -webkit-optimize-contrast;
   }
 }
 
 @layer components {
   .btn-primary {
     @apply bg-sage-600 text-white px-6 py-3 rounded-2xl font-body font-medium text-sm tracking-wide
-    hover:bg-sage-700 active:bg-sage-800 transition-all duration-200
-    shadow-lg shadow-sage-200/50 hover:shadow-xl hover:shadow-sage-300/40
-    hover:-translate-y-0.5 active:translate-y-0;
+    hover:bg-sage-700 active:bg-sage-800
+    transition-all duration-200
+    shadow-md shadow-sage-200/60 hover:shadow-lg hover:shadow-sage-300/50
+    active:scale-[0.98];
+    /* GPU accelerated */
+    transform: translateZ(0);
+    will-change: transform;
   }
 
   .btn-ghost {
     @apply bg-transparent text-sage-700 px-6 py-3 rounded-2xl font-body font-medium text-sm
-    hover:bg-sage-50 border border-sage-200 hover:border-sage-300 transition-all duration-200;
+    hover:bg-sage-50 border border-sage-200 hover:border-sage-300
+    transition-colors duration-200;
   }
 
   .card {
-    @apply bg-white/80 backdrop-blur-sm rounded-3xl border border-cream-200/60
-    shadow-sm hover:shadow-lg transition-all duration-300;
+    @apply bg-white/80 rounded-3xl border border-cream-200/60
+    shadow-sm hover:shadow-md transition-shadow duration-300;
+    /* Skip backdrop-blur on mobile for performance */
+    contain: layout style;
+  }
+
+  @media (min-width: 768px) {
+    .card {
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
   }
 
   .input-field {
     @apply w-full bg-cream-50 border border-cream-300 rounded-2xl px-4 py-3
     font-body text-sage-800 placeholder:text-sage-400
-    focus:outline-none focus:ring-2 focus:ring-sage-300 focus:border-transparent
+    focus:outline-none focus:ring-2 focus:ring-sage-300/60 focus:border-transparent
     transition-all duration-200;
   }
 
@@ -70,9 +83,17 @@
   .section-title {
     @apply font-display text-2xl md:text-3xl text-sage-800 leading-tight;
   }
+
+  /* Article card hover — only on desktop */
+  @media (hover: hover) {
+    .article-card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(67, 114, 104, 0.12);
+    }
+  }
 }
 
-/* Noise texture overlay */
+/* ─── Noise overlay — subtle texture ──────────────────────────────────────── */
 .noise-overlay::before {
   content: '';
   position: fixed;
@@ -80,28 +101,17 @@
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.3;
+  opacity: 0.25;
+  /* Don't composite the noise on mobile — save GPU */
 }
 
-/* Stagger animation helpers */
-.stagger-1 { animation-delay: 0.1s; opacity: 0; }
-.stagger-2 { animation-delay: 0.2s; opacity: 0; }
-.stagger-3 { animation-delay: 0.3s; opacity: 0; }
-.stagger-4 { animation-delay: 0.4s; opacity: 0; }
-.stagger-5 { animation-delay: 0.5s; opacity: 0; }
-.stagger-6 { animation-delay: 0.6s; opacity: 0; }
-.stagger-7 { animation-delay: 0.7s; opacity: 0; }
-.stagger-8 { animation-delay: 0.8s; opacity: 0; }
-
-.animate-fade-up {
-  animation: fadeUp 0.6s ease-out forwards;
+@media (max-width: 768px) {
+  .noise-overlay::before {
+    opacity: 0.12;
+  }
 }
 
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
+/* ─── Skeleton shimmer ────────────────────────────────────────────────────── */
 @keyframes shimmer {
   0% { background-position: -468px 0; }
   100% { background-position: 468px 0; }
@@ -111,16 +121,126 @@
   background: linear-gradient(90deg, #e8ece9 25%, #dde5de 50%, #e8ece9 75%);
   background-size: 400px 100%;
   animation: shimmer 1.4s ease infinite;
+  /* Hardware accelerated */
+  transform: translateZ(0);
 }
 
-/* Reading progress bar */
+/* ─── Reading progress bar ────────────────────────────────────────────────── */
 .reading-progress {
-  @apply fixed top-0 left-0 h-1 bg-gradient-to-r from-sage-400 to-warm-400 z-50;
-  transition: width 0.1s ease;
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #7cae9e, #ed9155);
+  z-index: 9998;
+  transition: width 0.15s linear;
+  transform: translateZ(0);
 }
 
-/* TTS highlight */
-.tts-highlight {
-  @apply bg-sage-100 text-sage-800 rounded;
-  transition: background-color 0.3s ease;
+/* ─── Fade up animation ───────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.5s ease-out forwards;
+  /* GPU hint */
+  will-change: opacity, transform;
+}
+
+/* Stagger helpers */
+.stagger-1 { animation-delay: 0.05s; opacity: 0; }
+.stagger-2 { animation-delay: 0.10s; opacity: 0; }
+.stagger-3 { animation-delay: 0.15s; opacity: 0; }
+.stagger-4 { animation-delay: 0.20s; opacity: 0; }
+.stagger-5 { animation-delay: 0.25s; opacity: 0; }
+.stagger-6 { animation-delay: 0.30s; opacity: 0; }
+
+/* ─── Auth page animations ────────────────────────────────────────────────── */
+@keyframes authOrb1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(30px, -40px) scale(1.1); }
+  66%       { transform: translate(-20px, 20px) scale(0.95); }
+}
+
+@keyframes authOrb2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-40px, 30px) scale(0.9); }
+  66%       { transform: translate(20px, -20px) scale(1.05); }
+}
+
+@keyframes authOrb3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(20px, 30px) scale(1.08); }
+}
+
+.auth-orb-1 { animation: authOrb1 12s ease-in-out infinite; }
+.auth-orb-2 { animation: authOrb2 16s ease-in-out infinite; }
+.auth-orb-3 { animation: authOrb3 10s ease-in-out infinite; }
+
+/* ─── Loading spinner ─────────────────────────────────────────────────────── */
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+/* ─── Bounce dots ─────────────────────────────────────────────────────────── */
+@keyframes bounce-dot {
+  0%, 60%, 100% { transform: translateY(0); }
+  30%            { transform: translateY(-6px); }
+}
+
+/* ─── Float animation ─────────────────────────────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+
+.animate-float { animation: float 5s ease-in-out infinite; }
+.animate-float-delayed { animation: float 5s ease-in-out 2s infinite; }
+
+/* ─── Pulse slow ──────────────────────────────────────────────────────────── */
+.animate-pulse-slow { animation: pulse 4s ease-in-out infinite; }
+
+/* ─── Page transitions — GPU only ────────────────────────────────────────── */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+/* ─── Mobile: remove expensive effects ───────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Disable backdrop-blur on Navbar for perf */
+  .mobile-no-blur {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: rgba(248, 245, 240, 0.97) !important;
+  }
+
+  /* Simpler shadows */
+  .card {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
+  }
+
+  /* Disable hover translate on mobile — saves paint */
+  .article-card-hover {
+    transition: background-color 0.2s ease !important;
+  }
+}
+
+/* ─── Prose style for article body ───────────────────────────────────────── */
+.article-body p {
+  @apply font-body text-base text-sage-700 leading-[1.85] mb-5;
+}
+
+.article-body p.highlighted {
+  @apply bg-sage-50 rounded-xl px-4 py-3 -mx-4 text-sage-900;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
