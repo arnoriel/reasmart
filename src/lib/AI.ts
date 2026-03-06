@@ -35,6 +35,33 @@ const CATEGORY_PHOTOS: Record<string, string[]> = {
     '1551836022-d5d88e9218df', '1568992688237-ec37d89fb1c3', '1600880292203-757bb62b4baf',
     '1497366216548-37526070297c',
   ],
+  finance: [
+    '1611974789855-9c702a4b1a5f', '1559526324-593bc073d938', '1579621970563-ebec7560ff3e',
+    '1642790551116-18416ed0a4c7', '1565514020179-026b92b2d70b', '1518186285589-2f7649de83e0',
+    '1507679799987-c73779587ccf', '1504711434969-e33886168f5c', '1543286386-713bdd548da4',
+    '1460925895917-afdab827c52f',
+  ],
+  markets: [
+    '1611974789855-9c702a4b1a5f', '1642790551116-18416ed0a4c7', '1579621970563-ebec7560ff3e',
+    '1569025591-9c2e2d0df5b7', '1607863680198-23d4b2565df0', '1535320903710-d993d3d77d29',
+    '1504711434969-e33886168f5c', '1460925895917-afdab827c52f',
+  ],
+  crypto: [
+    '1639762681485-074b7f938ba0', '1622630998477-4212b9b8d586', '1518186285589-2f7649de83e0',
+    '1605792657660-596af9009e82', '1639322537228-f710d846310a', '1642543348745-03b1f4b328f5',
+  ],
+  investing: [
+    '1611974789855-9c702a4b1a5f', '1543286386-713bdd548da4', '1460925895917-afdab827c52f',
+    '1565514020179-026b92b2d70b', '1579621970563-ebec7560ff3e', '1507679799987-c73779587ccf',
+  ],
+  'real-estate': [
+    '1560518883-ce09059eeffa', '1582407947304-ec8ac37d3a69', '1516455590571-18daebf0b8b7',
+    '1592595896551-12b371d546d5', '1503174971373-b1f69850bfd0', '1570129477492-45c003edd2be',
+  ],
+  economics: [
+    '1607863680198-23d4b2565df0', '1535320903710-d993d3d77d29', '1504711434969-e33886168f5c',
+    '1579621970563-ebec7560ff3e', '1460925895917-afdab827c52f', '1611974789855-9c702a4b1a5f',
+  ],
   culture: [
     '1518998053901-5348d3961a04', '1541961017774-22349e4a1262', '1499781350541-7783f6c6a0c8',
     '1578662996442-48f60103fc96', '1493514789931-586cb221d7a7', '1523050854058-8df90110c9f1',
@@ -59,10 +86,58 @@ const CATEGORY_PHOTOS: Record<string, string[]> = {
     '1559526324-593bc073d938', '1476234251651-6b0a2ff0a34c', '1528890996690-27a11a98d46c',
     '1580492516084-58a98ee5f9ad',
   ],
+  'mental-health': [
+    '1559757148-5c350d0d3c56', '1476234251651-6b0a2ff0a34c', '1528890996690-27a11a98d46c',
+    '1506126613408-eca07ce68773', '1499996860823-5214fcc65c8f', '1544005313-94ddf0286df2',
+  ],
   education: [
     '1523050854058-8df90110c9f1', '1457369804613-52c61a468e7d', '1580582932707-520aed937b7b',
     '1503676260728-1c00da094a0b', '1456513080510-7bf3a84b82f8', '1497633762265-9d179a990aa6',
     '1588072432904-843af37f03ed', '1544027993-37dbbb087eca',
+  ],
+  philosophy: [
+    '1507003211169-0a1dd7228f2d', '1544005313-94ddf0286df2', '1465101162946-4377e57745c3',
+    '1476234251651-6b0a2ff0a34c', '1456428746267-a1756408f782', '1573496359142-b8d87734a5a2',
+  ],
+  history: [
+    '1461360228754-6e81c478b882', '1558618666-fcd25c85cd64', '1499781350541-7783f6c6a0c8',
+    '1541961017774-22349e4a1262', '1518998053901-5348d3961a04', '1493514789931-586cb221d7a7',
+  ],
+  law: [
+    '1589829545856-d10d557cf95f', '1453728013993-6d66e9c9123a', '1505664194779-8beaceb22d7a',
+    '1450101499163-c8848c66ca85', '1575505513521-63f4c07cc2a3',
+  ],
+  geopolitics: [
+    '1451187580459-43490279c0fa', '1446776899648-aa78eefe8ed0', '1507692049790-de58290a4334',
+    '1562832135-14a35d25edef', '1451187580459-43490279c0fa',
+  ],
+  space: [
+    '1462331940025-496dfbfc7564', '1446776899648-aa78eefe8ed0', '1502134249126-9f3755a50d78',
+    '1516912481800-e18f3d7e01b7', '1534796636912-3b417048bb0e', '1446941303597-3b60a8f6dd42',
+  ],
+  gaming: [
+    '1542751371-adc38448a05e', '1560419015-7c708f5b3c56', '1509198397606-93ff3b4b5b6c',
+    '1552820728-8b83bb6b773f', '1511512578047-dfb367046420',
+  ],
+  music: [
+    '1493225457124-a3eb161ffa5f', '1514320291840-2e0a9bf2a9ae', '1511379938547-c1f69419868d',
+    '1504898770ae-e2faae72asda', '1510915361894-db8b60106cb1',
+  ],
+  travel: [
+    '1488085061851-e6da0e8c5b15', '1530521954074-e0a39cf48814', '1469854523086-cc02fe5d8800',
+    '1476514525405-309bda388a33', '1501555088652-021faa106b9b',
+  ],
+  fitness: [
+    '1517836357463-d25dfeac3438', '1534438327276-14e5300c3a48', '1571019613454-1cb2f99b2d8b',
+    '1520923642038-b4259acecbd7', '1549060279-7e168fcee0c2',
+  ],
+  nutrition: [
+    '1490645935967-10de6ba17061', '1512621776951-a57141f2eefd', '1498837167922-ddd27525d352',
+    '1540420773420-3366772f4999', '1498837167922-ddd27525d352',
+  ],
+  entrepreneurship: [
+    '1553484771-371a605b060b', '1507003211169-0a1dd7228f2d', '1486406146923-c28c2d46b5b9',
+    '1568992688237-ec37d89fb1c3', '1600880292203-757bb62b4baf',
   ],
   general: [
     '1457369804613-52c61a468e7d', '1488190211105-8b0e65b80b4e', '1507692049790-de58290a4334',
@@ -76,31 +151,73 @@ const CATEGORY_PHOTOS: Record<string, string[]> = {
 }
 
 const KEYWORD_OVERRIDES: Record<string, string> = {
+  // Technology
   ai: 'technology', 'artificial intelligence': 'technology', machine: 'technology',
   robot: 'technology', code: 'technology', software: 'technology', computer: 'technology',
-  data: 'technology', space: 'science', quantum: 'science', biology: 'science',
-  chemistry: 'science', physics: 'science', dna: 'science', brain: 'psychology',
-  mental: 'psychology', emotion: 'psychology', cognitive: 'psychology', mind: 'psychology',
+  data: 'technology', blockchain: 'crypto', nft: 'crypto', web3: 'crypto',
+  defi: 'crypto', bitcoin: 'crypto', ethereum: 'crypto', cryptocurrency: 'crypto',
+  // Science
+  space: 'space', quantum: 'science', biology: 'science', astronomy: 'space',
+  chemistry: 'science', physics: 'science', dna: 'science', nasa: 'space',
+  // Finance
+  stock: 'markets', market: 'markets', trading: 'markets', wall: 'markets',
+  invest: 'investing', portfolio: 'investing', dividend: 'investing', etf: 'investing',
+  fund: 'investing', hedge: 'investing', bonds: 'investing', equity: 'investing',
+  finance: 'finance', money: 'finance', bank: 'finance', fintech: 'finance',
+  loan: 'finance', mortgage: 'real-estate', property: 'real-estate', housing: 'real-estate',
+  economy: 'economics', gdp: 'economics', inflation: 'economics', recession: 'economics',
+  startup: 'entrepreneurship', founder: 'entrepreneurship', venture: 'entrepreneurship',
+  // Mind & Body
+  brain: 'psychology', mental: 'mental-health', emotion: 'psychology',
+  cognitive: 'psychology', mind: 'psychology', therapy: 'mental-health',
+  anxiety: 'mental-health', depression: 'mental-health', meditation: 'personal-growth',
+  mindful: 'personal-growth', fitness: 'fitness', nutrition: 'nutrition',
+  medical: 'health', drug: 'health', vaccine: 'health',
+  // Environment
   climate: 'environment', nature: 'environment', green: 'environment', ocean: 'environment',
-  forest: 'environment', energy: 'environment', fitness: 'health', nutrition: 'health',
-  medical: 'health', meditation: 'personal-growth', mindful: 'personal-growth',
-  startup: 'business', finance: 'business', economy: 'business', art: 'culture',
-  music: 'culture', film: 'culture', learn: 'education', student: 'education',
-  university: 'education',
+  forest: 'environment', energy: 'environment', solar: 'environment', carbon: 'environment',
+  // Society
+  law: 'law', legal: 'law', court: 'law', policy: 'law', government: 'geopolitics',
+  politics: 'geopolitics', war: 'geopolitics', diplomacy: 'geopolitics',
+  election: 'geopolitics', democracy: 'geopolitics',
+  art: 'culture', music: 'music', film: 'culture', history: 'history',
+  philosophy: 'philosophy', ethics: 'philosophy',
+  // Learning
+  learn: 'education', student: 'education', university: 'education',
+  travel: 'travel', game: 'gaming', sport: 'fitness',
 }
 
 // Maps preference labels to article categories
 const PREFERENCE_TO_CATEGORY: Record<string, string> = {
-  technology: 'technology', tech: 'technology', ai: 'technology', coding: 'technology',
-  science: 'science', biology: 'science', physics: 'science', chemistry: 'science',
-  health: 'health', fitness: 'health', wellness: 'health', nutrition: 'health',
-  business: 'business', finance: 'business', economics: 'business', startup: 'business',
-  culture: 'culture', art: 'culture', history: 'culture', music: 'culture',
-  'personal growth': 'personal-growth', selfimprovement: 'personal-growth',
-  productivity: 'personal-growth', mindfulness: 'personal-growth',
-  environment: 'environment', climate: 'environment', nature: 'environment',
-  psychology: 'psychology', 'mental health': 'psychology', neuroscience: 'psychology',
-  education: 'education', learning: 'education',
+  // Finance
+  'personal finance': 'finance', 'investing & markets': 'markets', 'investing': 'investing',
+  'markets': 'markets', 'cryptocurrency & web3': 'crypto', 'crypto': 'crypto',
+  'real estate': 'real-estate', 'economics': 'economics', 'entrepreneurship': 'entrepreneurship',
+  'startups': 'entrepreneurship', 'finance': 'finance',
+  // Technology
+  'technology': 'technology', 'tech': 'technology', 'artificial intelligence': 'technology',
+  'coding': 'technology', 'ai': 'technology',
+  // Science
+  'science': 'science', 'biology & life sciences': 'science', 'physics': 'science',
+  'mathematics': 'science', 'space & astronomy': 'space',
+  // Society
+  'world affairs': 'geopolitics', 'history': 'history', 'philosophy': 'philosophy',
+  'law & policy': 'law', 'culture & arts': 'culture', 'religion & spirituality': 'culture',
+  'sociology': 'general', 'geopolitics': 'geopolitics',
+  // Growth
+  'personal growth': 'personal-growth', 'productivity': 'personal-growth',
+  'leadership': 'business', 'education': 'education', 'career development': 'business',
+  'psychology': 'psychology', 'communication': 'personal-growth',
+  // Lifestyle
+  'health & wellness': 'health', 'mental health': 'mental-health',
+  'nutrition & diet': 'nutrition', 'fitness & sport': 'fitness',
+  'travel': 'travel', 'food & cooking': 'nutrition', 'fashion & design': 'culture',
+  // Entertainment
+  'gaming': 'gaming', 'music': 'music', 'film & tv': 'culture',
+  'books & literature': 'culture', 'sports': 'fitness',
+  // Planet
+  'climate & environment': 'environment', 'sustainability': 'environment',
+  'future of work': 'business', 'bioethics': 'philosophy', 'urban planning': 'general',
 }
 
 function prefToCategory(pref: string): string {
@@ -187,10 +304,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   }
 }
 
-// ── OPTIMIZED: Single article generator (topic + article in one call) ─────────
-// KEY CHANGE: No longer needs a pre-planned topic. Each call selects its own
-// specific angle within the given preference domain — eliminating the serial
-// planArticleTopics() bottleneck entirely.
+// ── Single article generator ──────────────────────────────────────────────────
 async function generateSingleArticle(
   preference: string,
   country: string,
@@ -237,9 +351,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   }
 }
 
-// ── OPTIMIZED: Generate Top Picks — no serial planning step ──────────────────
-// Before: planArticleTopics (2-3s) → 6 parallel article calls = 5-8s total
-// After:  6 parallel combined calls start IMMEDIATELY = 3-5s total
+// ── Generate Top Picks ────────────────────────────────────────────────────────
 export async function generateTopPicks(
   preferences: string[],
   country: string,
@@ -247,7 +359,6 @@ export async function generateTopPicks(
 ): Promise<Article[]> {
   const COUNT = 6
 
-  // Distribute preferences evenly across slots for topic diversity
   const slots = Array.from({ length: COUNT }, (_, i) => {
     const pref = preferences[i % preferences.length]
     return {
@@ -256,7 +367,6 @@ export async function generateTopPicks(
     }
   })
 
-  // Track used angles to avoid duplicate topics across parallel calls
   const usedAngles = new Set<string>()
 
   const promises = slots.map(({ preference, category }, i) =>
@@ -277,9 +387,7 @@ export async function generateTopPicks(
   return articles.length > 0 ? articles : getFallbackArticles()
 }
 
-// ── OPTIMIZED: Search Results ─────────────────────────────────────────────────
-// Before: 1 planning call → 5 article calls = 2 serial rounds
-// After: 5 parallel calls with query context baked in
+// ── Search Results ────────────────────────────────────────────────────────────
 export async function generateSearchResults(
   query: string,
   country: string = 'Global',
@@ -287,7 +395,6 @@ export async function generateSearchResults(
 ): Promise<Article[]> {
   const COUNT = 5
 
-  // Lens angles for covering a query from multiple dimensions
   const LENSES = [
     'the scientific research and mechanisms behind',
     'the historical context and evolution of',
