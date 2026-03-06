@@ -65,16 +65,15 @@ export function getArticleCache(): ArticleCache | null {
   return raw ? JSON.parse(raw) : null
 }
 
+// FIXED: Previous logic expired cache immediately if opened after 6am on the same day.
+// Now uses an 8-hour TTL — simple, predictable, no edge cases.
 export function isCacheStale(): boolean {
   const cache = getArticleCache()
   if (!cache) return true
   const fetched = new Date(cache.fetchedAt)
   const now = new Date()
-  // Cache expires at 6am next day
-  const nextRefresh = new Date(fetched)
-  nextRefresh.setHours(6, 0, 0, 0)
-  if (nextRefresh <= fetched) nextRefresh.setDate(nextRefresh.getDate() + 1)
-  return now >= nextRefresh
+  const CACHE_TTL_MS = 8 * 60 * 60 * 1000 // 8 hours
+  return now.getTime() - fetched.getTime() > CACHE_TTL_MS
 }
 
 export function markArticleRead(id: string): void {

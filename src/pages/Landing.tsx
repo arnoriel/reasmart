@@ -90,7 +90,7 @@ export default function Landing() {
             <span className="font-display font-semibold text-sage-800 text-lg">Reasmart</span>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/auth')} className="btn-ghost text-sm py-2">Sign In</button>
+            {/* <button onClick={() => navigate('/auth')} className="btn-ghost text-sm py-2">Sign In</button> */}
             <button onClick={() => navigate('/auth')} className="btn-primary text-sm py-2">Get Started</button>
           </div>
         </div>
