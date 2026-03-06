@@ -37,6 +37,7 @@ const KEYS = {
   SESSION: 'reasmart_session',
   READ_HISTORY: 'reasmart_read',
   SCREEN_TIME: 'reasmart_screen_time',
+  BOOKMARKS: 'reasmart_bookmarks',
 }
 
 export function saveUser(user: UserProfile): void {
@@ -52,6 +53,20 @@ export function clearUser(): void {
   localStorage.removeItem(KEYS.USER)
 }
 
+export function logout(): void {
+  const user = getUser()
+  if (user) {
+    const { sessionStart: _, ...profile } = user
+    localStorage.setItem(KEYS.USER, JSON.stringify(profile))
+  }
+  localStorage.removeItem(KEYS.SCREEN_TIME)
+}
+
+export function isLoggedIn(): boolean {
+  const user = getUser()
+  return !!user?.sessionStart
+}
+
 export function saveArticleCache(articles: Article[]): void {
   const cache: ArticleCache = {
     articles,
@@ -65,14 +80,12 @@ export function getArticleCache(): ArticleCache | null {
   return raw ? JSON.parse(raw) : null
 }
 
-// FIXED: Previous logic expired cache immediately if opened after 6am on the same day.
-// Now uses an 8-hour TTL — simple, predictable, no edge cases.
 export function isCacheStale(): boolean {
   const cache = getArticleCache()
   if (!cache) return true
   const fetched = new Date(cache.fetchedAt)
   const now = new Date()
-  const CACHE_TTL_MS = 8 * 60 * 60 * 1000 // 8 hours
+  const CACHE_TTL_MS = 8 * 60 * 60 * 1000
   return now.getTime() - fetched.getTime() > CACHE_TTL_MS
 }
 
@@ -111,4 +124,29 @@ export function getScreenTimeMinutes(): number {
 
 export function resetScreenTime(): void {
   localStorage.removeItem(KEYS.SCREEN_TIME)
+}
+
+// ─── Bookmarks ────────────────────────────────────────────────────────────────
+
+export function getBookmarks(): Article[] {
+  const raw = localStorage.getItem(KEYS.BOOKMARKS)
+  return raw ? JSON.parse(raw) : []
+}
+
+export function addBookmark(article: Article): void {
+  const bookmarks = getBookmarks()
+  if (!bookmarks.find(b => b.id === article.id)) {
+    // Prepend so newest bookmarks appear first
+    bookmarks.unshift(article)
+    localStorage.setItem(KEYS.BOOKMARKS, JSON.stringify(bookmarks))
+  }
+}
+
+export function removeBookmark(id: string): void {
+  const bookmarks = getBookmarks().filter(b => b.id !== id)
+  localStorage.setItem(KEYS.BOOKMARKS, JSON.stringify(bookmarks))
+}
+
+export function isBookmarked(id: string): boolean {
+  return getBookmarks().some(b => b.id === id)
 }

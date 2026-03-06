@@ -534,7 +534,7 @@ function AuthBackground() {
 // ─── Step indicator ──────────────────────────────────────────────────────────
 function StepIndicator({ step, total }: { step: number; total: number }) {
   return (
-    <div className="flex items-center gap-2 mb-8 px-1">
+       <div className="flex items-center justify-center gap-3 mb-8 px-1 max-w-[260px] mx-auto">
       {Array.from({ length: total }).map((_, i) => (
         <div key={i} className="flex items-center gap-2 flex-1">
           <motion.div
@@ -596,7 +596,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Auth() {
   const navigate = useNavigate()
-  const [mode, setMode]               = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode]               = useState<'signin' | 'signup'>('signup')
   const [step, setStep]               = useState(0)
   const [showPw, setShowPw]           = useState(false)
   const [showSIPw, setShowSIPw]       = useState(false)

@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { useState, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Clock, ExternalLink, BookOpen } from 'lucide-react'
+import { Clock, ExternalLink, BookOpen, Bookmark } from 'lucide-react'
+import { addBookmark, removeBookmark, isBookmarked } from '../lib/storage'
 import type { Article } from '../lib/storage'
 
 interface Props {
@@ -11,28 +12,28 @@ interface Props {
 }
 
 const categoryColors: Record<string, string> = {
-  technology:       'bg-blue-100 text-blue-700',
-  science:          'bg-purple-100 text-purple-700',
-  health:           'bg-green-100 text-green-700',
-  business:         'bg-amber-100 text-amber-700',
-  culture:          'bg-pink-100 text-pink-700',
-  'personal-growth':'bg-sage-100 text-sage-700',
-  environment:      'bg-emerald-100 text-emerald-700',
-  news:             'bg-gray-100 text-gray-700',
-  psychology:       'bg-violet-100 text-violet-700',
-  general:          'bg-cream-200 text-sage-600',
+  technology:        'bg-blue-100 text-blue-700',
+  science:           'bg-purple-100 text-purple-700',
+  health:            'bg-green-100 text-green-700',
+  business:          'bg-amber-100 text-amber-700',
+  culture:           'bg-pink-100 text-pink-700',
+  'personal-growth': 'bg-sage-100 text-sage-700',
+  environment:       'bg-emerald-100 text-emerald-700',
+  news:              'bg-gray-100 text-gray-700',
+  psychology:        'bg-violet-100 text-violet-700',
+  general:           'bg-cream-200 text-sage-600',
 }
 
 const categoryAccent: Record<string, string> = {
-  technology:       '#3B82F6',
-  science:          '#8B5CF6',
-  health:           '#10B981',
-  business:         '#F59E0B',
-  culture:          '#EC4899',
-  'personal-growth':'#6EBF9E',
-  environment:      '#22C55E',
-  psychology:       '#7C3AED',
-  general:          '#6B7280',
+  technology:        '#3B82F6',
+  science:           '#8B5CF6',
+  health:            '#10B981',
+  business:          '#F59E0B',
+  culture:           '#EC4899',
+  'personal-growth': '#6EBF9E',
+  environment:       '#22C55E',
+  psychology:        '#7C3AED',
+  general:           '#6B7280',
 }
 
 function getCategoryColor(cat: string): string {
@@ -51,18 +52,146 @@ function formatDate(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime()
     const h = Math.floor(diff / 3.6e6)
     const d = Math.floor(diff / 8.64e7)
-    if (h < 1)  return 'Just now'
-    if (h < 24) return `${h}h ago`
+    if (h < 1)   return 'Just now'
+    if (h < 24)  return `${h}h ago`
     if (d === 1) return 'Yesterday'
-    if (d < 7)  return `${d}d ago`
+    if (d < 7)   return `${d}d ago`
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   } catch { return 'Recently' }
 }
 
+// ─── Confirm Remove Modal ─────────────────────────────────────────────────────
+function ConfirmRemoveModal({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(15, 30, 20, 0.45)', backdropFilter: 'blur(6px)' }}
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ scale: 0.88, opacity: 0, y: 12 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.88, opacity: 0, y: 12 }}
+        transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+        className="bg-white rounded-3xl shadow-2xl shadow-sage-300/20 p-7 max-w-xs w-full"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Icon */}
+        <div className="w-12 h-12 bg-amber-50 border border-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Bookmark size={22} className="text-amber-500" />
+        </div>
+
+        <h3 className="font-display text-lg text-sage-800 text-center mb-1">
+          Remove Bookmark?
+        </h3>
+        <p className="font-body text-sm text-sage-500 text-center leading-relaxed mb-6">
+          Are you sure you want to remove this article from your Bookmarks?
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl font-body text-sm font-medium text-sage-600
+              bg-cream-100 hover:bg-cream-200 border border-cream-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <motion.button
+            onClick={onConfirm}
+            whileTap={{ scale: 0.97 }}
+            className="flex-1 py-2.5 rounded-xl font-body text-sm font-semibold text-white
+              bg-red-400 hover:bg-red-500 transition-colors"
+          >
+            Remove
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Bookmark Button ──────────────────────────────────────────────────────────
+function BookmarkButton({
+  article,
+  className = '',
+}: {
+  article: Article
+  className?: string
+}) {
+  const [bookmarked, setBookmarked] = useState(() => isBookmarked(article.id))
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      if (bookmarked) {
+        setShowConfirm(true)
+      } else {
+        addBookmark(article)
+        setBookmarked(true)
+      }
+    },
+    [bookmarked, article],
+  )
+
+  const handleConfirmRemove = useCallback(() => {
+    removeBookmark(article.id)
+    setBookmarked(false)
+    setShowConfirm(false)
+  }, [article.id])
+
+  return (
+    <>
+      <motion.button
+        onClick={handleClick}
+        whileTap={{ scale: 0.85 }}
+        aria-label={bookmarked ? 'Remove bookmark' : 'Add bookmark'}
+        className={`flex items-center justify-center rounded-full transition-all duration-200 ${className}`}
+        style={{
+          background: bookmarked
+            ? 'rgba(110,191,158,0.92)'
+            : 'rgba(255,255,255,0.88)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+          width: 28,
+          height: 28,
+        }}
+      >
+        <Bookmark
+          size={13}
+          className="transition-all duration-200"
+          style={{
+            color: bookmarked ? '#fff' : '#6B7280',
+            fill: bookmarked ? '#fff' : 'transparent',
+          }}
+        />
+      </motion.button>
+
+      <AnimatePresence>
+        {showConfirm && (
+          <ConfirmRemoveModal
+            onConfirm={handleConfirmRemove}
+            onCancel={() => setShowConfirm(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 export default function ArticleCard({ article, index = 0, featured = false }: Props) {
-  const navigate   = useNavigate()
+  const navigate = useNavigate()
   const [imgError, setImgError] = useState(false)
-  const accent     = categoryAccent[article.category] || '#6B7280'
+  const accent = categoryAccent[article.category] || '#6B7280'
 
   const handleClick = () => {
     localStorage.setItem(`article_${article.id}`, JSON.stringify(article))
@@ -99,15 +228,18 @@ export default function ArticleCard({ article, index = 0, featured = false }: Pr
             </div>
           )}
 
-          {/* Score */}
-          {article.aiScore && (
-            <div className="absolute top-3 right-3 bg-white/90 rounded-full px-2.5 py-1 flex items-center gap-1 shadow-sm">
-              <span className="text-[10px] font-mono text-sage-500">AI</span>
-              <span className={`text-xs font-mono font-bold ${getScoreColor(article.aiScore)}`}>
-                {article.aiScore}/10
-              </span>
-            </div>
-          )}
+          {/* Top-right: AI score + bookmark side by side */}
+          <div className="absolute top-3 right-3 flex items-center gap-1.5">
+            {article.aiScore && (
+              <div className="bg-white/90 rounded-full px-2.5 py-1 flex items-center gap-1 shadow-sm">
+                <span className="text-[10px] font-mono text-sage-500">AI</span>
+                <span className={`text-xs font-mono font-bold ${getScoreColor(article.aiScore)}`}>
+                  {article.aiScore}/10
+                </span>
+              </div>
+            )}
+            <BookmarkButton article={article} />
+          </div>
 
           {/* Bottom gradient */}
           <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/30 to-transparent" />
@@ -154,11 +286,12 @@ export default function ArticleCard({ article, index = 0, featured = false }: Pr
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06, duration: 0.35 }}
       onClick={handleClick}
-      className="flex gap-4 p-4 rounded-2xl bg-white/55 hover:bg-white/80 border border-cream-200/40 hover:border-cream-300/50 cursor-pointer group transition-colors duration-200"
+      className="flex gap-4 p-4 rounded-2xl bg-white/55 hover:bg-white/80 border border-cream-200/40
+        hover:border-cream-300/50 cursor-pointer group transition-colors duration-200"
     >
       {/* Thumbnail */}
       <div
-        className="flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden flex items-center justify-center"
+        className="flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden flex items-center justify-center relative"
         style={{ background: `linear-gradient(135deg, ${accent}25, ${accent}45)` }}
       >
         {article.image && !imgError ? (
@@ -173,6 +306,11 @@ export default function ArticleCard({ article, index = 0, featured = false }: Pr
         ) : (
           <BookOpen size={22} style={{ color: accent, opacity: 0.5 }} />
         )}
+
+        {/* Bookmark button overlaid bottom-right of thumbnail */}
+        <div className="absolute bottom-1 right-1" onClick={e => e.stopPropagation()}>
+          <BookmarkButton article={article} />
+        </div>
       </div>
 
       <div className="flex-1 min-w-0">

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Home, Search, LogOut, Bell, Clock } from 'lucide-react'
-import { getUser, clearUser, getScreenTimeMinutes } from '../lib/storage'
+import { Home, Search, Bookmark, LogOut, Bell, Clock } from 'lucide-react'
+import { getUser, logout, getScreenTimeMinutes } from '../lib/storage'
 import { getWellnessReminder } from '../lib/AI'
 
 function getWellnessShown(): boolean {
@@ -16,9 +16,9 @@ function setWellnessShown(): void {
 const isMobile = /Mobi|Android/i.test(navigator.userAgent)
 
 export default function Navbar() {
-  const location  = useLocation()
-  const navigate  = useNavigate()
-  const user      = getUser()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const user     = getUser()
 
   const [showWellness, setShowWellness] = useState(false)
   const [wellnessMsg, setWellnessMsg]   = useState('')
@@ -41,11 +41,12 @@ export default function Navbar() {
     return () => clearInterval(interval)
   }, [])
 
-  const handleLogout = () => { clearUser(); navigate('/') }
+  const handleLogout = () => { logout(); navigate('/') }
 
   const navItems = [
-    { path: '/home',   icon: Home,   label: 'Home'    },
-    { path: '/search', icon: Search, label: 'Explore' },
+    { path: '/home',      icon: Home,     label: 'Home'      },
+    { path: '/search',    icon: Search,   label: 'Explore'   },
+    { path: '/bookmarks', icon: Bookmark, label: 'Bookmarks' },
   ]
 
   const formatTime = (m: number) =>
@@ -128,27 +129,33 @@ export default function Navbar() {
       {!hideBottomNav && (
         <div
           className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-cream-200/50"
-          style={{ background: isMobile ? 'rgba(248,245,240,0.97)' : undefined,
-            backdropFilter: isMobile ? 'none' : 'blur(16px)' }}
+          style={{
+            background:    isMobile ? 'rgba(248,245,240,0.97)' : undefined,
+            backdropFilter: isMobile ? 'none' : 'blur(16px)',
+          }}
         >
           <div className="flex items-center justify-around px-4 py-3 safe-area-pb">
-            {navItems.map(item => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex flex-col items-center gap-0.5 px-5 py-1 rounded-xl transition-colors duration-200 ${
-                  location.pathname === item.path
-                    ? 'text-sage-600'
-                    : 'text-sage-400'
-                }`}
-              >
-                <item.icon size={20} />
-                <span className="text-[10px] font-body">{item.label}</span>
-              </Link>
-            ))}
+            {navItems.map(item => {
+              const active = location.pathname === item.path
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors duration-200 ${
+                    active ? 'text-sage-600' : 'text-sage-400'
+                  }`}
+                >
+                  <item.icon
+                    size={20}
+                    fill={active && item.path === '/bookmarks' ? 'currentColor' : 'none'}
+                  />
+                  <span className="text-[10px] font-body">{item.label}</span>
+                </Link>
+              )
+            })}
             <button
               onClick={handleLogout}
-              className="flex flex-col items-center gap-0.5 px-5 py-1 text-sage-400"
+              className="flex flex-col items-center gap-0.5 px-4 py-1 text-sage-400"
             >
               <LogOut size={20} />
               <span className="text-[10px] font-body">Logout</span>

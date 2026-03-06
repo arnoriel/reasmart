@@ -9,6 +9,7 @@ import Search from './pages/Search'
 import Article from './pages/Article'
 import { getUser } from './lib/storage'
 import ChatAI from './pages/ChatAI'
+import Bookmarks from './pages/Bookmarks'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const user = getUser()
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/search" element={<PrivateRoute><Search /></PrivateRoute>} />
             <Route path="/article/:id" element={<PrivateRoute><Article /></PrivateRoute>} />
             <Route path="/chat-ai" element={<PrivateRoute><ChatAI /></PrivateRoute>} />
+            <Route path="/bookmarks" element={<PrivateRoute><Bookmarks /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AnimatePresence>
