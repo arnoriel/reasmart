@@ -3,17 +3,16 @@ import { AnimatePresence } from 'framer-motion'
 import { useEffect } from 'react'
 import Landing from './pages/Landing'
 import Auth from './pages/Auth'
+import { isLoggedIn } from './lib/storage'
 import LoadingVerify from './pages/LoadingVerify'
 import Home from './pages/Home'
 import Search from './pages/Search'
 import Article from './pages/Article'
-import { getUser } from './lib/storage'
 import ChatAI from './pages/ChatAI'
 import Bookmarks from './pages/Bookmarks'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const user = getUser()
-  return user ? <>{children}</> : <Navigate to="/auth" replace />
+  return isLoggedIn() ? <>{children}</> : <Navigate to="/auth" replace />
 }
 
 // Ensures every route change scrolls to top

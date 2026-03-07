@@ -41,7 +41,10 @@ export default function Navbar() {
     return () => clearInterval(interval)
   }, [])
 
-  const handleLogout = () => { logout(); navigate('/') }
+  const handleLogout = () => {
+    logout()
+    navigate('/', { replace: true })
+  }
 
   const navItems = [
     { path: '/home',      icon: Home,     label: 'Home'      },

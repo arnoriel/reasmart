@@ -7,7 +7,7 @@ import {
   TrendingUp, Target, Star, 
   BarChart2, Leaf, Lightbulb, Feather,
 } from 'lucide-react'
-import { getUser } from '../lib/storage'
+import { getUser, isLoggedIn } from '../lib/storage'
 
 const features = [
   {
@@ -197,9 +197,10 @@ export default function Landing() {
   const heroY = useTransform(scrollY, [0, 400], [0, -60])
   const [] = useState(false)
   const [, setActiveTestimonial] = useState(0)
+  const hasAccount = !!getUser()
 
   useEffect(() => {
-    if (getUser()) navigate('/home')
+  if (isLoggedIn()) navigate('/home')
   }, [navigate])
 
   // Auto-rotate testimonials
@@ -225,14 +226,16 @@ export default function Landing() {
             <span className="font-display font-semibold text-sage-800 text-lg">Reasmart</span>
           </div>
           <div className="flex items-center gap-3">
-            {/* <button
-              onClick={() => navigate('/auth')}
-              className="hidden sm:block btn-ghost text-sm py-2 px-4"
-            >
-              Sign In
-            </button> */}
+            {hasAccount && (
+              <button
+                onClick={() => navigate('/auth', { state: { mode: 'signin' } })}
+                className="hidden sm:block btn-ghost text-sm py-2 px-4"
+              >
+                Sign In
+              </button>
+            )}
             <motion.button
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/auth', { state: { mode: 'signup' } })}
               className="btn-primary text-sm py-2.5 px-5 flex items-center gap-2"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
@@ -696,27 +699,30 @@ export default function Landing() {
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <footer className="border-t border-cream-200/50 py-8 px-6 bg-white/30">
         <div className="max-w-4xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5">
+          {/* Logo */}
+          <div className="flex justify-center mb-4">
+            <div className="flex items-center gap-2">
               <div className="w-7 h-7 bg-gradient-to-br from-sage-500 to-sage-700 rounded-lg flex items-center justify-center shadow-sm">
                 <span className="text-white text-xs font-display font-bold">R</span>
               </div>
               <span className="font-display text-sage-700 font-medium">Reasmart</span>
             </div>
-
-            <div className="flex items-center gap-6 text-xs font-body text-sage-400">
-              <button onClick={() => navigate('/auth')} className="hover:text-sage-600 transition-colors">Get Started</button>
-              <span>·</span>
-              <span>© 2025 Reasmart</span>
-              <span>·</span>
-              <span>Designed for your digital wellbeing</span>
-            </div>
           </div>
 
-          <div className="text-center mt-6">
-            <p className="font-body text-[11px] text-sage-400">
-              Read mindfully · Protect your mental wellbeing 🌿
-            </p>
+          {/* Links */}
+          <div className="flex justify-center mb-4">
+            <button
+              onClick={() => navigate('/auth')}
+              className="text-xs font-body text-sage-400 hover:text-sage-600 transition-colors"
+            >
+              Get Started
+            </button>
+          </div>
+
+          {/* Copyright */}
+          <div className="text-center space-y-1">
+            <p className="font-body text-[11px] text-sage-400">© 2025 Reasmart · Designed for your digital wellbeing</p>
+            <p className="font-body text-[11px] text-sage-400">Read mindfully · Protect your mental wellbeing 🌿</p>
           </div>
         </div>
       </footer>

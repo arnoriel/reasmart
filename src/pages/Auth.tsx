@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   User, Mail, Lock, ChevronRight, ChevronLeft,
@@ -596,7 +596,9 @@ function Field({ label, error, children }: { label: string; error?: string; chil
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Auth() {
   const navigate = useNavigate()
-  const [mode, setMode]               = useState<'signin' | 'signup'>('signup')
+  const location = useLocation()
+  const initialMode = (location.state as { mode?: 'signin' | 'signup' })?.mode ?? 'signup'
+  const [mode, setMode]               = useState<'signin' | 'signup'>(initialMode)
   const [step, setStep]               = useState(0)
   const [showPw, setShowPw]           = useState(false)
   const [showSIPw, setShowSIPw]       = useState(false)
