@@ -9,6 +9,102 @@ interface AIMessage {
   content: string
 }
 
+// ── Persistent deduplication ──────────────────────────────────────────────────
+// Stores up to MAX_HISTORY fingerprints across sessions in localStorage.
+// A fingerprint is the first ~60 chars of a title, lowercased + stripped.
+const HISTORY_KEY = 'reasmart_article_history'
+const MAX_HISTORY = 120
+
+function loadHistory(): Set<string> {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY)
+    return new Set(raw ? (JSON.parse(raw) as string[]) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function saveHistory(set: Set<string>) {
+  try {
+    // Keep only the last MAX_HISTORY items (trim oldest)
+    const arr = [...set].slice(-MAX_HISTORY)
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(arr))
+  } catch { /* storage full — ignore */ }
+}
+
+function fingerprint(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9 ]/g, '').slice(0, 60).trim()
+}
+
+function recordArticle(title: string) {
+  const h = loadHistory()
+  h.add(fingerprint(title))
+  saveHistory(h)
+}
+
+function buildExcludeHint(): string {
+  const h = loadHistory()
+  if (h.size === 0) return ''
+  // Send only the last 30 to keep the prompt lean
+  const recent = [...h].slice(-30).join(' | ')
+  return `\n\nIMPORTANT – Do NOT write about any of these already-covered angles or topics: [${recent}]. Pick something genuinely new.`
+}
+
+// ── Temporal freshness seed ───────────────────────────────────────────────────
+// Giving the model a time-of-day + week-of-year nudge makes it vary its picks
+// even for the same preference across multiple same-day sessions.
+function temporalSeed(): string {
+  const now = new Date()
+  const week = Math.ceil(
+    (((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000) + 1) / 7
+  )
+  const slot = ['early morning', 'morning', 'midday', 'afternoon', 'evening', 'night'][
+    Math.floor(now.getHours() / 4)
+  ]
+  return `Current context: Week ${week} of ${now.getFullYear()}, ${slot} session, batch-id ${Math.random().toString(36).slice(2, 8)}.`
+}
+
+// ── Angle rotation pool ───────────────────────────────────────────────────────
+// 30 distinct journalistic lenses — shuffled per call so the model gets a
+// different framing each time rather than always "scientific research".
+const ANGLE_POOL = [
+  'the surprising counterintuitive research finding about',
+  'the little-known historical origin of',
+  'the cutting-edge technological development transforming',
+  'the economic forces reshaping',
+  'the cross-cultural comparison revealing hidden truths about',
+  'the ethical controversy dividing experts in',
+  'the grassroots movement quietly disrupting',
+  'the psychological mechanism behind human behaviour regarding',
+  'the geopolitical consequence of recent changes in',
+  'the environmental impact no one talks about within',
+  'the future scenario (10 years out) for',
+  'the role of misinformation and how to navigate',
+  'the breakthrough discovery announced this year in',
+  'the inequality lens that exposes who benefits and who loses in',
+  'the policy failure and what it teaches us about',
+  'the neuroscience of why humans struggle with',
+  'the start-up ecosystem disrupting the incumbents in',
+  'the data-driven audit that challenges common wisdom about',
+  'the personal narrative of a practitioner transforming',
+  'the regulatory battle shaping the next decade of',
+  'the historical parallel between today and a pivotal past moment in',
+  'the emerging consensus building among researchers on',
+  'the second-order effects most people overlook in',
+  'the role of culture and identity in shaping attitudes toward',
+  'the overlooked demographic experiencing this differently within',
+  'the practical toolkit any beginner should know about',
+  'the risk model experts use to evaluate decisions in',
+  'the open question keeping scientists up at night about',
+  'the business model innovation quietly succeeding in',
+  'the philosophical challenge at the heart of debates about',
+]
+
+function pickAngles(count: number): string[] {
+  const shuffled = [...ANGLE_POOL].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, count)
+}
+
 // ── Curated Unsplash photo pools per category ─────────────────────────────────
 const CATEGORY_PHOTOS: Record<string, string[]> = {
   technology: [
@@ -151,15 +247,12 @@ const CATEGORY_PHOTOS: Record<string, string[]> = {
 }
 
 const KEYWORD_OVERRIDES: Record<string, string> = {
-  // Technology
   ai: 'technology', 'artificial intelligence': 'technology', machine: 'technology',
   robot: 'technology', code: 'technology', software: 'technology', computer: 'technology',
   data: 'technology', blockchain: 'crypto', nft: 'crypto', web3: 'crypto',
   defi: 'crypto', bitcoin: 'crypto', ethereum: 'crypto', cryptocurrency: 'crypto',
-  // Science
   space: 'space', quantum: 'science', biology: 'science', astronomy: 'space',
   chemistry: 'science', physics: 'science', dna: 'science', nasa: 'space',
-  // Finance
   stock: 'markets', market: 'markets', trading: 'markets', wall: 'markets',
   invest: 'investing', portfolio: 'investing', dividend: 'investing', etf: 'investing',
   fund: 'investing', hedge: 'investing', bonds: 'investing', equity: 'investing',
@@ -167,55 +260,42 @@ const KEYWORD_OVERRIDES: Record<string, string> = {
   loan: 'finance', mortgage: 'real-estate', property: 'real-estate', housing: 'real-estate',
   economy: 'economics', gdp: 'economics', inflation: 'economics', recession: 'economics',
   startup: 'entrepreneurship', founder: 'entrepreneurship', venture: 'entrepreneurship',
-  // Mind & Body
   brain: 'psychology', mental: 'mental-health', emotion: 'psychology',
   cognitive: 'psychology', mind: 'psychology', therapy: 'mental-health',
   anxiety: 'mental-health', depression: 'mental-health', meditation: 'personal-growth',
   mindful: 'personal-growth', fitness: 'fitness', nutrition: 'nutrition',
   medical: 'health', drug: 'health', vaccine: 'health',
-  // Environment
   climate: 'environment', nature: 'environment', green: 'environment', ocean: 'environment',
   forest: 'environment', energy: 'environment', solar: 'environment', carbon: 'environment',
-  // Society
   law: 'law', legal: 'law', court: 'law', policy: 'law', government: 'geopolitics',
   politics: 'geopolitics', war: 'geopolitics', diplomacy: 'geopolitics',
   election: 'geopolitics', democracy: 'geopolitics',
   art: 'culture', music: 'music', film: 'culture', history: 'history',
   philosophy: 'philosophy', ethics: 'philosophy',
-  // Learning
   learn: 'education', student: 'education', university: 'education',
   travel: 'travel', game: 'gaming', sport: 'fitness',
 }
 
-// Maps preference labels to article categories
 const PREFERENCE_TO_CATEGORY: Record<string, string> = {
-  // Finance
   'personal finance': 'finance', 'investing & markets': 'markets', 'investing': 'investing',
   'markets': 'markets', 'cryptocurrency & web3': 'crypto', 'crypto': 'crypto',
   'real estate': 'real-estate', 'economics': 'economics', 'entrepreneurship': 'entrepreneurship',
   'startups': 'entrepreneurship', 'finance': 'finance',
-  // Technology
   'technology': 'technology', 'tech': 'technology', 'artificial intelligence': 'technology',
   'coding': 'technology', 'ai': 'technology',
-  // Science
   'science': 'science', 'biology & life sciences': 'science', 'physics': 'science',
   'mathematics': 'science', 'space & astronomy': 'space',
-  // Society
   'world affairs': 'geopolitics', 'history': 'history', 'philosophy': 'philosophy',
   'law & policy': 'law', 'culture & arts': 'culture', 'religion & spirituality': 'culture',
   'sociology': 'general', 'geopolitics': 'geopolitics',
-  // Growth
   'personal growth': 'personal-growth', 'productivity': 'personal-growth',
   'leadership': 'business', 'education': 'education', 'career development': 'business',
   'psychology': 'psychology', 'communication': 'personal-growth',
-  // Lifestyle
   'health & wellness': 'health', 'mental health': 'mental-health',
   'nutrition & diet': 'nutrition', 'fitness & sport': 'fitness',
   'travel': 'travel', 'food & cooking': 'nutrition', 'fashion & design': 'culture',
-  // Entertainment
   'gaming': 'gaming', 'music': 'music', 'film & tv': 'culture',
   'books & literature': 'culture', 'sports': 'fitness',
-  // Planet
   'climate & environment': 'environment', 'sustainability': 'environment',
   'future of work': 'business', 'bioethics': 'philosophy', 'urban planning': 'general',
 }
@@ -260,7 +340,7 @@ export async function callAI(messages: AIMessage[], maxTokens = 900): Promise<st
       model: MODEL,
       messages,
       max_tokens: maxTokens,
-      temperature: 0.7,
+      temperature: 0.92,   // ↑ slightly higher for more creative variation
     }),
   })
 
@@ -310,19 +390,29 @@ async function generateSingleArticle(
   country: string,
   category: string,
   index: number,
-  usedAngles: Set<string> = new Set()
+  angle?: string                 // ← injected from the rotating pool
 ): Promise<Article | null> {
-  const avoidHint = usedAngles.size > 0
-    ? `Avoid these already-covered angles: ${[...usedAngles].join(', ')}.`
-    : ''
 
-  const prompt = `You are a science journalist for a premium mindful reading app (Reasmart). Write one original, deeply researched article for a reader from ${country} interested in: "${preference}".
+  const angleLine = angle
+    ? `You MUST explore specifically: ${angle} "${preference}".`
+    : `Pick ONE specific, surprising, non-obvious angle within "${preference}".`
 
-Pick ONE specific, surprising angle within this topic — not the obvious one. ${avoidHint}
-Use real studies, real institutions, real data points. 4-5 rich paragraphs. Intelligent but warm tone.
+  const excludeHint = buildExcludeHint()   // ← persistent dedup from localStorage
+  const seed = temporalSeed()              // ← time-based freshness signal
+
+  const prompt = `You are a science journalist writing for a premium mindful reading app (Reasmart). Write one original, deeply researched article for a reader from ${country}.
+
+${seed}
+${angleLine}${excludeHint}
+
+Rules:
+- Use real studies, real institutions, real data points.
+- 4-5 rich paragraphs. Intelligent but warm tone.
+- The title must be specific and unique — never generic.
+- Do NOT reuse topics that have been covered before (see exclusion list above).
 
 Respond ONLY with valid JSON (no markdown, no backticks):
-{"title":"Compelling headline (not clickbait)","description":"2-sentence hook with a surprising fact","content":"4-5 paragraphs separated by \\n\\n. Include specific data, mechanisms, practical takeaway.","source":"Real publication that would cover this","publishedAt":"${new Date(Date.now() - index * 3600000).toISOString()}","readTime":5,"aiScore":9,"imageKeywords":["keyword1","keyword2"],"tags":["tag1","tag2","tag3"]}`
+{"title":"Compelling specific headline (not clickbait)","description":"2-sentence hook with a surprising fact","content":"4-5 paragraphs separated by \\n\\n. Include specific data, mechanisms, practical takeaway.","source":"Real publication that would cover this","publishedAt":"${new Date(Date.now() - index * 3600000).toISOString()}","readTime":5,"aiScore":9,"imageKeywords":["keyword1","keyword2"],"tags":["tag1","tag2","tag3"]}`
 
   try {
     const raw = await callAI([{ role: 'user', content: prompt }], 950)
@@ -332,7 +422,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       ? parsed.imageKeywords
       : [preference.split(' ')[0], category]
 
-    return {
+    const article: Article = {
       id: `ai_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`,
       title: parsed.title || `Insights on ${preference}`,
       description: parsed.description || '',
@@ -346,6 +436,11 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       aiScore: parsed.aiScore || 8,
       tags: parsed.tags || [preference, category],
     }
+
+    // Persist the title fingerprint immediately so parallel calls don't collide
+    recordArticle(article.title)
+    return article
+
   } catch {
     return null
   }
@@ -359,6 +454,7 @@ export async function generateTopPicks(
 ): Promise<Article[]> {
   const COUNT = 6
 
+  // Distribute preferences evenly across slots
   const slots = Array.from({ length: COUNT }, (_, i) => {
     const pref = preferences[i % preferences.length]
     return {
@@ -367,14 +463,12 @@ export async function generateTopPicks(
     }
   })
 
-  const usedAngles = new Set<string>()
+  // Get a fresh shuffled set of angles — one per slot, all distinct
+  const angles = pickAngles(COUNT)
 
   const promises = slots.map(({ preference, category }, i) =>
-    generateSingleArticle(preference, country, category, i, usedAngles).then(article => {
-      if (article) {
-        usedAngles.add(article.title.split(':')[0].slice(0, 40))
-        if (onArticleReady) onArticleReady(article)
-      }
+    generateSingleArticle(preference, country, category, i, angles[i]).then(article => {
+      if (article && onArticleReady) onArticleReady(article)
       return article
     })
   )
@@ -395,18 +489,13 @@ export async function generateSearchResults(
 ): Promise<Article[]> {
   const COUNT = 5
 
-  const LENSES = [
-    'the scientific research and mechanisms behind',
-    'the historical context and evolution of',
-    'the practical applications and real-world impact of',
-    'the philosophical and ethical dimensions of',
-    'the cutting-edge future developments in',
-  ]
+  // Randomise which 5 lenses we use from the full pool each time
+  const lenses = pickAngles(COUNT)
 
   const inferredCategory = Object.entries(KEYWORD_OVERRIDES)
     .find(([kw]) => query.toLowerCase().includes(kw))?.[1] || 'general'
 
-  const promises = LENSES.slice(0, COUNT).map((lens, i) => {
+  const promises = lenses.map((lens, i) => {
     const enrichedPref = `${lens} "${query}"`
     return generateSingleArticle(enrichedPref, country, inferredCategory, i).then(article => {
       if (article && onArticleReady) onArticleReady(article)
@@ -428,6 +517,11 @@ export async function getWellnessReminder(minutes: number): Promise<string> {
   } catch {
     return `You've been absorbing ideas for ${minutes} minutes — impressive! Take 2 minutes to stretch and let those insights settle before diving back in. 🌿`
   }
+}
+
+// ── Clear article history (expose for settings/debug use) ─────────────────────
+export function clearArticleHistory() {
+  localStorage.removeItem(HISTORY_KEY)
 }
 
 // ── Fallback Articles ─────────────────────────────────────────────────────────
